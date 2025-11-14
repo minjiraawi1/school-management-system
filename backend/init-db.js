@@ -20,7 +20,8 @@ async function initializeDatabase() {
       'users_table.sql',
       'classes_subjects_tables.sql',
       'teachers_students_assignments_tables.sql',
-      'results_table.sql'
+      'results_table.sql',
+      'add_middle_name.sql'
     ];
 
     for (const file of sqlFiles) {

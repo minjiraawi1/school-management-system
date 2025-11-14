@@ -14,8 +14,8 @@ const getAllStudents = async (req, res) => {
 
     const dataResult = await pool.query(`
       SELECT s.id, s.student_id, s.date_of_birth, s.parent_name, s.parent_phone, s.parent_email, s.enrollment_date,
-             u.username, u.email, u.first_name, u.last_name, u.role, u.created_at as user_created_at,
-             c.name as class_name, c.grade_level, c.academic_year
+             u.username, u.email, u.first_name, u.middle_name, u.last_name, u.role, u.created_at as user_created_at,
+             c.name as class_name, c.grade_level, c.academic_year, s.class_id
       FROM students s
       JOIN users u ON s.user_id = u.id
       JOIN classes c ON s.class_id = c.id
@@ -43,8 +43,8 @@ const getStudentsByClassId = async (req, res) => {
   try {
     const { classId } = req.params;
     const result = await pool.query(`
-      SELECT s.id, s.student_id, s.date_of_birth, s.parent_name, s.parent_phone, s.parent_email,
-             u.first_name, u.last_name, u.email
+      SELECT s.id, s.student_id, s.date_of_birth, s.parent_name, s.parent_phone, s.parent_email, s.class_id,
+             u.username, u.first_name, u.middle_name, u.last_name, u.email
       FROM students s
       JOIN users u ON s.user_id = u.id
       WHERE s.class_id = $1
@@ -63,7 +63,7 @@ const getStudentById = async (req, res) => {
     const { id } = req.params;
     const result = await pool.query(`
       SELECT s.id, s.student_id, s.date_of_birth, s.parent_name, s.parent_phone, s.parent_email, s.enrollment_date,
-             u.username, u.email, u.first_name, u.last_name, u.role, u.created_at as user_created_at,
+             u.username, u.email, u.first_name, u.middle_name, u.last_name, u.role, u.created_at as user_created_at,
              c.name as class_name, c.grade_level, c.academic_year, c.id as class_id
       FROM students s
       JOIN users u ON s.user_id = u.id
@@ -92,11 +92,38 @@ const createStudent = async (req, res) => {
       return res.status(400).json({ errors: errors.array() });
     }
 
-    const { username, password, first_name, middle_name, last_name, student_id, class_id, date_of_birth, parent_name, parent_phone, parent_email } = req.body;
+    const { password, first_name, middle_name, last_name, class_id, date_of_birth, parent_name, parent_phone, parent_email } = req.body;
 
     await client.query('BEGIN');
 
-    // First create user account
+    // Auto-generate student_id starting from ST1000
+    let nextNumber = 1000;
+    
+    // Get the highest existing student_id that starts with ST
+    try {
+      const maxIdResult = await client.query(`
+        SELECT student_id FROM students 
+        WHERE student_id LIKE 'ST%'
+        ORDER BY CAST(SUBSTRING(student_id FROM 3) AS INTEGER) DESC 
+        LIMIT 1
+      `);
+      
+      if (maxIdResult.rows.length > 0) {
+        const lastId = maxIdResult.rows[0].student_id;
+        const numberPart = lastId.substring(2);
+        const parsedNum = parseInt(numberPart);
+        if (!isNaN(parsedNum)) {
+          nextNumber = parsedNum + 1;
+        }
+      }
+    } catch (queryError) {
+      console.log('Note: Could not query existing student IDs, starting from ST1000');
+    }
+    
+    const student_id = `ST${nextNumber}`;
+    const username = student_id; // Username same as student_id
+
+    // Create user account
     const bcrypt = require('bcryptjs');
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
@@ -108,10 +135,10 @@ const createStudent = async (req, res) => {
 
     const userId = userResult.rows[0].id;
 
-    // Then create student record
+    // Create student record
     const studentResult = await client.query(
       'INSERT INTO students (user_id, student_id, class_id, date_of_birth, parent_name, parent_phone, parent_email) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *',
-      [userId, student_id, class_id, date_of_birth, parent_name, parent_phone, parent_email]
+      [userId, student_id, class_id, date_of_birth || null, parent_name, parent_phone || null, parent_email || null]
     );
 
     await client.query('COMMIT');
@@ -124,7 +151,7 @@ const createStudent = async (req, res) => {
     await client.query('ROLLBACK');
     console.error('Create student error:', error);
     if (error.code === '23505') { // Unique violation
-      if (error.constraint.includes('student_id')) {
+      if (error.constraint && error.constraint.includes('student_id')) {
         res.status(400).json({ error: 'Student ID already exists' });
       } else {
         res.status(400).json({ error: 'Username or email already exists' });
@@ -141,6 +168,8 @@ const createStudent = async (req, res) => {
 
 // Update student
 const updateStudent = async (req, res) => {
+  const client = await pool.connect();
+  
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
@@ -148,30 +177,59 @@ const updateStudent = async (req, res) => {
     }
 
     const { id } = req.params;
-    const { student_id, class_id, date_of_birth, parent_name, parent_phone, parent_email } = req.body;
+    const { first_name, middle_name, last_name, class_id, date_of_birth, parent_name, parent_phone, parent_email, password } = req.body;
 
-    const result = await pool.query(
-      'UPDATE students SET student_id = $1, class_id = $2, date_of_birth = $3, parent_name = $4, parent_phone = $5, parent_email = $6, updated_at = CURRENT_TIMESTAMP WHERE id = $7 RETURNING *',
-      [student_id, class_id, date_of_birth, parent_name, parent_phone, parent_email, id]
-    );
+    await client.query('BEGIN');
 
-    if (result.rows.length === 0) {
+    // Get user_id for this student
+    const studentResult = await client.query('SELECT user_id FROM students WHERE id = $1', [id]);
+    
+    if (studentResult.rows.length === 0) {
+      await client.query('ROLLBACK');
       return res.status(404).json({ error: 'Student not found' });
     }
+
+    const userId = studentResult.rows[0].user_id;
+
+    // Update user information (first_name, middle_name, last_name, and optionally password)
+    if (password) {
+      const bcrypt = require('bcryptjs');
+      const salt = await bcrypt.genSalt(10);
+      const hashedPassword = await bcrypt.hash(password, salt);
+      
+      await client.query(
+        'UPDATE users SET first_name = $1, middle_name = $2, last_name = $3, password = $4 WHERE id = $5',
+        [first_name, middle_name || null, last_name, hashedPassword, userId]
+      );
+    } else {
+      await client.query(
+        'UPDATE users SET first_name = $1, middle_name = $2, last_name = $3 WHERE id = $4',
+        [first_name, middle_name || null, last_name, userId]
+      );
+    }
+
+    // Update student record (excluding student_id and username as they are read-only)
+    const result = await client.query(
+      'UPDATE students SET class_id = $1, date_of_birth = $2, parent_name = $3, parent_phone = $4, parent_email = $5, updated_at = CURRENT_TIMESTAMP WHERE id = $6 RETURNING *',
+      [class_id, date_of_birth, parent_name, parent_phone, parent_email, id]
+    );
+
+    await client.query('COMMIT');
 
     res.json({
       message: 'Student updated successfully',
       student: result.rows[0]
     });
   } catch (error) {
+    await client.query('ROLLBACK');
     console.error('Update student error:', error);
-    if (error.code === '23505') { // Unique violation
-      res.status(400).json({ error: 'Student ID already exists' });
-    } else if (error.code === '23503') { // Foreign key violation
+    if (error.code === '23503') { // Foreign key violation
       res.status(400).json({ error: 'Invalid class ID' });
     } else {
       res.status(500).json({ error: 'Server error' });
     }
+  } finally {
+    client.release();
   }
 };
 

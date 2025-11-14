@@ -28,7 +28,6 @@ const ManageStudents = () => {
     date_of_birth: '',
     parent_name: '',
     parent_phone: '',
-    parent_email: '',
   });
 
   const requiredFields = useMemo(
@@ -89,7 +88,6 @@ const ManageStudents = () => {
       date_of_birth: '',
       parent_name: '',
       parent_phone: '',
-      parent_email: '',
     });
     setShowForm(true);
   };
@@ -107,7 +105,6 @@ const ManageStudents = () => {
       date_of_birth: student.date_of_birth || '',
       parent_name: student.parent_name || '',
       parent_phone: student.parent_phone || '',
-      parent_email: student.parent_email || '',
     });
     setShowForm(true);
   };
@@ -131,12 +128,21 @@ const ManageStudents = () => {
     if (!validateForm()) return;
     try {
       if (editingStudent) {
+        // For updates, don't send username or student_id as they're read-only
         const payload = { ...formData };
+        delete payload.username;
+        delete payload.student_id;
+        delete payload.parent_email;
         if (!payload.password) delete payload.password;
         await updateStudent(editingStudent.id, payload);
         setSuccess('Student updated');
       } else {
-        await createStudent(formData);
+        // For new students, don't send username or student_id - backend auto-generates them
+        const payload = { ...formData };
+        delete payload.username;
+        delete payload.student_id;
+        delete payload.parent_email;
+        await createStudent(payload);
         setSuccess('Student created');
       }
       setShowForm(false);
@@ -210,13 +216,23 @@ const ManageStudents = () => {
           <form onSubmit={handleSubmit}>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-gray-700 text-sm font-bold mb-2">Username</label>
+                <label className="block text-gray-700 text-sm font-bold mb-2">Username (Auto-generated)</label>
                 <input
                   type="text"
                   value={formData.username}
-                  onChange={(e) => setFormData({ ...formData, username: e.target.value })}
-                  className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 focus:outline-none"
-                  required
+                  className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 bg-gray-100 cursor-not-allowed"
+                  readOnly
+                  disabled
+                />
+              </div>
+              <div>
+                <label className="block text-gray-700 text-sm font-bold mb-2">Student ID (Auto-generated)</label>
+                <input
+                  type="text"
+                  value={formData.student_id}
+                  className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 bg-gray-100 cursor-not-allowed"
+                  readOnly
+                  disabled
                 />
               </div>
               {!editingStudent && (
@@ -232,16 +248,6 @@ const ManageStudents = () => {
                 </div>
               )}
               <div>
-                <label className="block text-gray-700 text-sm font-bold mb-2">Email</label>
-                <input
-                  type="email"
-                  value={formData.email}
-                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                  className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 focus:outline-none"
-                  required
-                />
-              </div>
-              <div>
                 <label className="block text-gray-700 text-sm font-bold mb-2">First Name</label>
                 <input
                   type="text"
@@ -252,21 +258,20 @@ const ManageStudents = () => {
                 />
               </div>
               <div>
+                <label className="block text-gray-700 text-sm font-bold mb-2">Middle Name</label>
+                <input
+                  type="text"
+                  value={formData.middle_name}
+                  onChange={(e) => setFormData({ ...formData, middle_name: e.target.value })}
+                  className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 focus:outline-none"
+                />
+              </div>
+              <div>
                 <label className="block text-gray-700 text-sm font-bold mb-2">Last Name</label>
                 <input
                   type="text"
                   value={formData.last_name}
                   onChange={(e) => setFormData({ ...formData, last_name: e.target.value })}
-                  className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 focus:outline-none"
-                  required
-                />
-              </div>
-              <div>
-                <label className="block text-gray-700 text-sm font-bold mb-2">Student ID</label>
-                <input
-                  type="text"
-                  value={formData.student_id}
-                  onChange={(e) => setFormData({ ...formData, student_id: e.target.value })}
                   className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 focus:outline-none"
                   required
                 />
@@ -312,15 +317,6 @@ const ManageStudents = () => {
                   type="tel"
                   value={formData.parent_phone}
                   onChange={(e) => setFormData({ ...formData, parent_phone: e.target.value })}
-                  className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 focus:outline-none"
-                />
-              </div>
-              <div>
-                <label className="block text-gray-700 text-sm font-bold mb-2">Parent Email</label>
-                <input
-                  type="email"
-                  value={formData.parent_email}
-                  onChange={(e) => setFormData({ ...formData, parent_email: e.target.value })}
                   className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 focus:outline-none"
                 />
               </div>
