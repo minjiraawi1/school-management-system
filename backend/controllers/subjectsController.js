@@ -17,6 +17,7 @@ const getAllSubjects = async (req, res) => {
     );
 
     res.json({
+      success: true,
       data: dataResult.rows,
       pagination: {
         total,
@@ -27,7 +28,7 @@ const getAllSubjects = async (req, res) => {
     });
   } catch (error) {
     console.error('Get subjects error:', error);
-    res.status(500).json({ error: 'Server error' });
+    res.status(500).json({ success: false, error: 'Server error' });
   }
 };
 
@@ -38,13 +39,13 @@ const getSubjectById = async (req, res) => {
     const result = await pool.query('SELECT * FROM subjects WHERE id = $1', [id]);
     
     if (result.rows.length === 0) {
-      return res.status(404).json({ error: 'Subject not found' });
+      return res.status(404).json({ success: false, error: 'Subject not found' });
     }
     
-    res.json(result.rows[0]);
+    res.json({ success: true, data: result.rows[0] });
   } catch (error) {
     console.error('Get subject by ID error:', error);
-    res.status(500).json({ error: 'Server error' });
+    res.status(500).json({ success: false, error: 'Server error' });
   }
 };
 
@@ -53,7 +54,7 @@ const createSubject = async (req, res) => {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({ errors: errors.array() });
+      return res.status(400).json({ success: false, errors: errors.array() });
     }
 
     const { name, code, description } = req.body;
@@ -64,21 +65,22 @@ const createSubject = async (req, res) => {
     );
 
     res.status(201).json({
+      success: true,
       message: 'Subject created successfully',
-      subject: result.rows[0]
+      data: result.rows[0]
     });
   } catch (error) {
     console.error('Create subject error:', error);
     if (error.code === '23505') { // Unique violation
       if (error.constraint && error.constraint.includes('subjects_code')) {
-        res.status(400).json({ error: 'Subject code already exists' });
+        res.status(400).json({ success: false, error: 'Subject code already exists' });
       } else if (error.constraint && error.constraint.includes('subjects_name')) {
-        res.status(400).json({ error: 'Subject name already exists' });
+        res.status(400).json({ success: false, error: 'Subject name already exists' });
       } else {
-        res.status(400).json({ error: 'Duplicate subject detected' });
+        res.status(400).json({ success: false, error: 'Duplicate subject detected' });
       }
     } else {
-      res.status(500).json({ error: 'Server error' });
+      res.status(500).json({ success: false, error: 'Server error' });
     }
   }
 };
@@ -88,7 +90,7 @@ const updateSubject = async (req, res) => {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({ errors: errors.array() });
+      return res.status(400).json({ success: false, errors: errors.array() });
     }
 
     const { id } = req.params;
@@ -100,25 +102,26 @@ const updateSubject = async (req, res) => {
     );
 
     if (result.rows.length === 0) {
-      return res.status(404).json({ error: 'Subject not found' });
+      return res.status(404).json({ success: false, error: 'Subject not found' });
     }
 
     res.json({
+      success: true,
       message: 'Subject updated successfully',
-      subject: result.rows[0]
+      data: result.rows[0]
     });
   } catch (error) {
     console.error('Update subject error:', error);
     if (error.code === '23505') { // Unique violation
       if (error.constraint && error.constraint.includes('subjects_code')) {
-        res.status(400).json({ error: 'Subject code already exists' });
+        res.status(400).json({ success: false, error: 'Subject code already exists' });
       } else if (error.constraint && error.constraint.includes('subjects_name')) {
-        res.status(400).json({ error: 'Subject name already exists' });
+        res.status(400).json({ success: false, error: 'Subject name already exists' });
       } else {
-        res.status(400).json({ error: 'Duplicate subject detected' });
+        res.status(400).json({ success: false, error: 'Duplicate subject detected' });
       }
     } else {
-      res.status(500).json({ error: 'Server error' });
+      res.status(500).json({ success: false, error: 'Server error' });
     }
   }
 };
@@ -131,13 +134,13 @@ const deleteSubject = async (req, res) => {
     const result = await pool.query('DELETE FROM subjects WHERE id = $1 RETURNING *', [id]);
 
     if (result.rows.length === 0) {
-      return res.status(404).json({ error: 'Subject not found' });
+      return res.status(404).json({ success: false, error: 'Subject not found' });
     }
 
-    res.json({ message: 'Subject deleted successfully' });
+    res.json({ success: true, message: 'Subject deleted successfully' });
   } catch (error) {
     console.error('Delete subject error:', error);
-    res.status(500).json({ error: 'Server error' });
+    res.status(500).json({ success: false, error: 'Server error' });
   }
 };
 

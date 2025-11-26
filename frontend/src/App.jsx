@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import { Provider, useDispatch, useSelector } from 'react-redux';
+import { Provider, useDispatch } from 'react-redux';
 import { store } from './store/store';
 import { restoreAuth } from './store/authSlice';
+import { ThemeProvider } from './components/ThemeProvider';
 import LoginPage from './pages/LoginPage.jsx';
 import ProtectedAdminRoute from './components/ProtectedAdminRoute';
 import ProtectedTeacherRoute from './components/ProtectedTeacherRoute';
@@ -14,15 +15,16 @@ import ManageSubjects from './pages/admin/ManageSubjects.jsx';
 import ManageStudents from './pages/admin/ManageStudents.jsx';
 import ManageTeachers from './pages/admin/ManageTeachers.jsx';
 import ManageAssignments from './pages/admin/ManageAssignments.jsx';
+import ResultsApproval from './pages/admin/ResultsApproval.jsx';
 import TeacherDashboard from './pages/teacher/TeacherDashboard.jsx';
 import TeacherResultsManagement from './pages/teacher/TeacherResultsManagement.jsx';
 import SelectAssignments from './pages/teacher/SelectAssignments.jsx';
 import StudentDashboard from './pages/student/StudentDashboard.jsx';
 import StudentResultsView from './pages/student/StudentResultsView.jsx';
+import ProfilePage from './pages/ProfilePage.jsx';
 
 function AppContent() {
   const dispatch = useDispatch();
-  const { restored } = useSelector((state) => state.auth);
   const [authChecked, setAuthChecked] = useState(false);
 
   useEffect(() => {
@@ -55,6 +57,8 @@ function AppContent() {
           <Route path="teachers" element={<ManageTeachers />} />
           <Route path="students" element={<ManageStudents />} />
           <Route path="assignments" element={<ManageAssignments />} />
+          <Route path="approvals" element={<ResultsApproval />} />
+          <Route path="profile" element={<ProfilePage />} />
         </Route>
 
         {/* Teacher Routes */}
@@ -63,6 +67,7 @@ function AppContent() {
           <Route path="dashboard" element={<TeacherDashboard />} />
           <Route path="select-assignment" element={<SelectAssignments />} />
           <Route path="results" element={<TeacherResultsManagement />} />
+          <Route path="profile" element={<ProfilePage />} />
         </Route>
 
         {/* Student Routes */}
@@ -70,6 +75,7 @@ function AppContent() {
           <Route index element={<Navigate to="dashboard" replace />} />
           <Route path="dashboard" element={<StudentDashboard />} />
           <Route path="results" element={<StudentResultsView />} />
+          <Route path="profile" element={<ProfilePage />} />
         </Route>
 
         {/* Default redirect */}
@@ -82,7 +88,9 @@ function AppContent() {
 function App() {
   return (
     <Provider store={store}>
-      <AppContent />
+      <ThemeProvider defaultTheme="light" storageKey="vite-ui-theme">
+        <AppContent />
+      </ThemeProvider>
     </Provider>
   );
 }

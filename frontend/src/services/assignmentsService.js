@@ -2,12 +2,12 @@ import api from './api';
 
 export const listAssignments = async () => {
   const res = await api.get('/assignments');
-  return res.data.data || res.data;
+  return res.data.data;
 };
 
 export const getTeacherAssignments = async (teacherId) => {
   const res = await api.get(`/assignments/teacher/${teacherId}`);
-  return res.data;
+  return res.data.data;
 };
 
 export const createAssignment = async (payload) => {

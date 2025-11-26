@@ -22,6 +22,7 @@ const getAllTeachers = async (req, res) => {
     `, [limit, offset]);
 
     res.json({
+      success: true,
       data: dataResult.rows,
       pagination: {
         total,
@@ -32,7 +33,7 @@ const getAllTeachers = async (req, res) => {
     });
   } catch (error) {
     console.error('Get teachers error:', error);
-    res.status(500).json({ error: 'Server error' });
+    res.status(500).json({ success: false, error: 'Server error' });
   }
 };
 
@@ -49,13 +50,13 @@ const getTeacherById = async (req, res) => {
     `, [id]);
     
     if (result.rows.length === 0) {
-      return res.status(404).json({ error: 'Teacher not found' });
+      return res.status(404).json({ success: false, error: 'Teacher not found' });
     }
     
-    res.json(result.rows[0]);
+    res.json({ success: true, data: result.rows[0] });
   } catch (error) {
     console.error('Get teacher by ID error:', error);
-    res.status(500).json({ error: 'Server error' });
+    res.status(500).json({ success: false, error: 'Server error' });
   }
 };
 
@@ -66,7 +67,7 @@ const createTeacher = async (req, res) => {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({ errors: errors.array() });
+      return res.status(400).json({ success: false, errors: errors.array() });
     }
 
     const { username, password, email, first_name, last_name, employee_id, specialization, qualification, experience_years, hire_date } = req.body;
@@ -94,20 +95,21 @@ const createTeacher = async (req, res) => {
     await client.query('COMMIT');
 
     res.status(201).json({
+      success: true,
       message: 'Teacher created successfully',
-      teacher: teacherResult.rows[0]
+      data: teacherResult.rows[0]
     });
   } catch (error) {
     await client.query('ROLLBACK');
     console.error('Create teacher error:', error);
     if (error.code === '23505') { // Unique violation
       if (error.constraint.includes('employee_id')) {
-        res.status(400).json({ error: 'Employee ID already exists' });
+        res.status(400).json({ success: false, error: 'Employee ID already exists' });
       } else {
-        res.status(400).json({ error: 'Username or email already exists' });
+        res.status(400).json({ success: false, error: 'Username or email already exists' });
       }
     } else {
-      res.status(500).json({ error: 'Server error' });
+      res.status(500).json({ success: false, error: 'Server error' });
     }
   } finally {
     client.release();
@@ -119,7 +121,7 @@ const updateTeacher = async (req, res) => {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({ errors: errors.array() });
+      return res.status(400).json({ success: false, errors: errors.array() });
     }
 
     const { id } = req.params;
@@ -131,19 +133,20 @@ const updateTeacher = async (req, res) => {
     );
 
     if (result.rows.length === 0) {
-      return res.status(404).json({ error: 'Teacher not found' });
+      return res.status(404).json({ success: false, error: 'Teacher not found' });
     }
 
     res.json({
+      success: true,
       message: 'Teacher updated successfully',
-      teacher: result.rows[0]
+      data: result.rows[0]
     });
   } catch (error) {
     console.error('Update teacher error:', error);
     if (error.code === '23505') { // Unique violation
-      res.status(400).json({ error: 'Employee ID already exists' });
+      res.status(400).json({ success: false, error: 'Employee ID already exists' });
     } else {
-      res.status(500).json({ error: 'Server error' });
+      res.status(500).json({ success: false, error: 'Server error' });
     }
   }
 };
@@ -162,7 +165,7 @@ const deleteTeacher = async (req, res) => {
     
     if (teacherResult.rows.length === 0) {
       await client.query('ROLLBACK');
-      return res.status(404).json({ error: 'Teacher not found' });
+      return res.status(404).json({ success: false, error: 'Teacher not found' });
     }
 
     const userId = teacherResult.rows[0].user_id;
@@ -175,11 +178,11 @@ const deleteTeacher = async (req, res) => {
 
     await client.query('COMMIT');
 
-    res.json({ message: 'Teacher deleted successfully' });
+    res.json({ success: true, message: 'Teacher deleted successfully' });
   } catch (error) {
     await client.query('ROLLBACK');
     console.error('Delete teacher error:', error);
-    res.status(500).json({ error: 'Server error' });
+    res.status(500).json({ success: false, error: 'Server error' });
   } finally {
     client.release();
   }

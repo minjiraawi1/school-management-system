@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5001/api';
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
 const api = axios.create({
   baseURL: API_URL,
@@ -23,13 +23,28 @@ api.interceptors.request.use(
   }
 );
 
-// Response interceptor to handle token expiration
+// Response interceptor to handle token expiration and errors
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response?.status === 401) {
-      localStorage.removeItem('token');
-      window.location.href = '/login';
+    if (error.response) {
+      // Handle 401 Unauthorized
+      if (error.response.status === 401) {
+        localStorage.removeItem('token');
+        window.location.href = '/login';
+      }
+      
+      // Extract error message from backend response
+      const backendError = error.response.data?.error || error.response.data?.message;
+      const validationErrors = error.response.data?.errors;
+      
+      if (validationErrors && Array.isArray(validationErrors)) {
+        // If there are validation errors, format them
+        const messages = validationErrors.map(e => e.msg).join(', ');
+        error.message = messages;
+      } else if (backendError) {
+        error.message = backendError;
+      }
     }
     return Promise.reject(error);
   }

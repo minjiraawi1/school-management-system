@@ -17,6 +17,7 @@ const getAllClasses = async (req, res) => {
     );
 
     res.json({
+      success: true,
       data: dataResult.rows,
       pagination: {
         total,
@@ -27,7 +28,7 @@ const getAllClasses = async (req, res) => {
     });
   } catch (error) {
     console.error('Get classes error:', error);
-    res.status(500).json({ error: 'Server error' });
+    res.status(500).json({ success: false, error: 'Server error' });
   }
 };
 
@@ -38,13 +39,13 @@ const getClassById = async (req, res) => {
     const result = await pool.query('SELECT * FROM classes WHERE id = $1', [id]);
     
     if (result.rows.length === 0) {
-      return res.status(404).json({ error: 'Class not found' });
+      return res.status(404).json({ success: false, error: 'Class not found' });
     }
     
-    res.json(result.rows[0]);
+    res.json({ success: true, data: result.rows[0] });
   } catch (error) {
     console.error('Get class by ID error:', error);
-    res.status(500).json({ error: 'Server error' });
+    res.status(500).json({ success: false, error: 'Server error' });
   }
 };
 
@@ -53,7 +54,7 @@ const createClass = async (req, res) => {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({ errors: errors.array() });
+      return res.status(400).json({ success: false, errors: errors.array() });
     }
 
     const { name, grade_level, academic_year } = req.body;
@@ -64,15 +65,16 @@ const createClass = async (req, res) => {
     );
 
     res.status(201).json({
+      success: true,
       message: 'Class created successfully',
-      class: result.rows[0]
+      data: result.rows[0]
     });
   } catch (error) {
     console.error('Create class error:', error);
     if (error.code === '23505') {
-      res.status(400).json({ error: 'Class already exists for academic year' });
+      res.status(400).json({ success: false, error: 'Class already exists for academic year' });
     } else {
-      res.status(500).json({ error: 'Server error' });
+      res.status(500).json({ success: false, error: 'Server error' });
     }
   }
 };
@@ -82,7 +84,7 @@ const updateClass = async (req, res) => {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({ errors: errors.array() });
+      return res.status(400).json({ success: false, errors: errors.array() });
     }
 
     const { id } = req.params;
@@ -94,19 +96,20 @@ const updateClass = async (req, res) => {
     );
 
     if (result.rows.length === 0) {
-      return res.status(404).json({ error: 'Class not found' });
+      return res.status(404).json({ success: false, error: 'Class not found' });
     }
 
     res.json({
+      success: true,
       message: 'Class updated successfully',
-      class: result.rows[0]
+      data: result.rows[0]
     });
   } catch (error) {
     console.error('Update class error:', error);
     if (error.code === '23505') {
-      res.status(400).json({ error: 'Class already exists for academic year' });
+      res.status(400).json({ success: false, error: 'Class already exists for academic year' });
     } else {
-      res.status(500).json({ error: 'Server error' });
+      res.status(500).json({ success: false, error: 'Server error' });
     }
   }
 };
@@ -119,13 +122,13 @@ const deleteClass = async (req, res) => {
     const result = await pool.query('DELETE FROM classes WHERE id = $1 RETURNING *', [id]);
 
     if (result.rows.length === 0) {
-      return res.status(404).json({ error: 'Class not found' });
+      return res.status(404).json({ success: false, error: 'Class not found' });
     }
 
-    res.json({ message: 'Class deleted successfully' });
+    res.json({ success: true, message: 'Class deleted successfully' });
   } catch (error) {
     console.error('Delete class error:', error);
-    res.status(500).json({ error: 'Server error' });
+    res.status(500).json({ success: false, error: 'Server error' });
   }
 };
 

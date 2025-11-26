@@ -2,12 +2,12 @@ import api from './api';
 
 export const listTeachers = async () => {
   const res = await api.get('/teachers');
-  return res.data.data || res.data;
+  return res.data.data;
 };
 
 export const getTeacher = async (id) => {
   const res = await api.get(`/teachers/${id}`);
-  return res.data;
+  return res.data.data;
 };
 
 export const createTeacher = async (payload) => {

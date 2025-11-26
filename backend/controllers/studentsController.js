@@ -24,6 +24,7 @@ const getAllStudents = async (req, res) => {
     `, [limit, offset]);
 
     res.json({
+      success: true,
       data: dataResult.rows,
       pagination: {
         total,
@@ -34,7 +35,7 @@ const getAllStudents = async (req, res) => {
     });
   } catch (error) {
     console.error('Get students error:', error);
-    res.status(500).json({ error: 'Server error' });
+    res.status(500).json({ success: false, error: 'Server error' });
   }
 };
 
@@ -50,10 +51,10 @@ const getStudentsByClassId = async (req, res) => {
       WHERE s.class_id = $1
       ORDER BY u.last_name, u.first_name
     `, [classId]);
-    res.json(result.rows);
+    res.json({ success: true, data: result.rows });
   } catch (error) {
     console.error('Get students by class error:', error);
-    res.status(500).json({ error: 'Server error' });
+    res.status(500).json({ success: false, error: 'Server error' });
   }
 };
 
@@ -72,13 +73,13 @@ const getStudentById = async (req, res) => {
     `, [id]);
     
     if (result.rows.length === 0) {
-      return res.status(404).json({ error: 'Student not found' });
+      return res.status(404).json({ success: false, error: 'Student not found' });
     }
     
-    res.json(result.rows[0]);
+    res.json({ success: true, data: result.rows[0] });
   } catch (error) {
     console.error('Get student by ID error:', error);
-    res.status(500).json({ error: 'Server error' });
+    res.status(500).json({ success: false, error: 'Server error' });
   }
 };
 
@@ -89,7 +90,7 @@ const createStudent = async (req, res) => {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({ errors: errors.array() });
+      return res.status(400).json({ success: false, errors: errors.array() });
     }
 
     const { password, first_name, middle_name, last_name, class_id, date_of_birth, parent_name, parent_phone, parent_email } = req.body;
@@ -144,22 +145,23 @@ const createStudent = async (req, res) => {
     await client.query('COMMIT');
 
     res.status(201).json({
+      success: true,
       message: 'Student created successfully',
-      student: studentResult.rows[0]
+      data: studentResult.rows[0]
     });
   } catch (error) {
     await client.query('ROLLBACK');
     console.error('Create student error:', error);
     if (error.code === '23505') { // Unique violation
       if (error.constraint && error.constraint.includes('student_id')) {
-        res.status(400).json({ error: 'Student ID already exists' });
+        res.status(400).json({ success: false, error: 'Student ID already exists' });
       } else {
-        res.status(400).json({ error: 'Username or email already exists' });
+        res.status(400).json({ success: false, error: 'Username or email already exists' });
       }
     } else if (error.code === '23503') { // Foreign key violation
-      res.status(400).json({ error: 'Invalid class ID' });
+      res.status(400).json({ success: false, error: 'Invalid class ID' });
     } else {
-      res.status(500).json({ error: 'Server error' });
+      res.status(500).json({ success: false, error: 'Server error' });
     }
   } finally {
     client.release();
@@ -173,7 +175,7 @@ const updateStudent = async (req, res) => {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({ errors: errors.array() });
+      return res.status(400).json({ success: false, errors: errors.array() });
     }
 
     const { id } = req.params;
@@ -186,7 +188,7 @@ const updateStudent = async (req, res) => {
     
     if (studentResult.rows.length === 0) {
       await client.query('ROLLBACK');
-      return res.status(404).json({ error: 'Student not found' });
+      return res.status(404).json({ success: false, error: 'Student not found' });
     }
 
     const userId = studentResult.rows[0].user_id;
@@ -217,16 +219,17 @@ const updateStudent = async (req, res) => {
     await client.query('COMMIT');
 
     res.json({
+      success: true,
       message: 'Student updated successfully',
-      student: result.rows[0]
+      data: result.rows[0]
     });
   } catch (error) {
     await client.query('ROLLBACK');
     console.error('Update student error:', error);
     if (error.code === '23503') { // Foreign key violation
-      res.status(400).json({ error: 'Invalid class ID' });
+      res.status(400).json({ success: false, error: 'Invalid class ID' });
     } else {
-      res.status(500).json({ error: 'Server error' });
+      res.status(500).json({ success: false, error: 'Server error' });
     }
   } finally {
     client.release();
@@ -247,7 +250,7 @@ const deleteStudent = async (req, res) => {
     
     if (studentResult.rows.length === 0) {
       await client.query('ROLLBACK');
-      return res.status(404).json({ error: 'Student not found' });
+      return res.status(404).json({ success: false, error: 'Student not found' });
     }
 
     const userId = studentResult.rows[0].user_id;
@@ -260,13 +263,41 @@ const deleteStudent = async (req, res) => {
 
     await client.query('COMMIT');
 
-    res.json({ message: 'Student deleted successfully' });
+    res.json({ success: true, message: 'Student deleted successfully' });
   } catch (error) {
     await client.query('ROLLBACK');
     console.error('Delete student error:', error);
-    res.status(500).json({ error: 'Server error' });
+    res.status(500).json({ success: false, error: 'Server error' });
   } finally {
     client.release();
+  }
+};
+
+// Get current authenticated student's own profile
+const getMyProfile = async (req, res) => {
+  try {
+    if (!req.user || !req.user.id) {
+      return res.status(401).json({ success: false, error: 'User not authenticated' });
+    }
+
+    const result = await pool.query(`
+      SELECT s.id, s.student_id, s.date_of_birth, s.parent_name, s.parent_phone, s.parent_email, s.enrollment_date,
+             u.username, u.email, u.first_name, u.middle_name, u.last_name, u.role,
+             c.name as class_name, c.grade_level, c.academic_year, c.id as class_id
+      FROM students s
+      JOIN users u ON s.user_id = u.id
+      JOIN classes c ON s.class_id = c.id
+      WHERE u.id = $1
+    `, [req.user.id]);
+    
+    if (result.rows.length === 0) {
+      return res.status(404).json({ success: false, error: 'Student profile not found' });
+    }
+    
+    res.json({ success: true, data: result.rows[0] });
+  } catch (error) {
+    console.error('Get my profile error:', error);
+    res.status(500).json({ success: false, error: 'Server error' });
   }
 };
 
@@ -276,5 +307,6 @@ module.exports = {
   getStudentById,
   createStudent,
   updateStudent,
-  deleteStudent
+  deleteStudent,
+  getMyProfile
 };

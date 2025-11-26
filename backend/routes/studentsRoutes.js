@@ -6,20 +6,20 @@ const {
   getStudentById,
   createStudent,
   updateStudent,
-  deleteStudent
+  deleteStudent,
+  getMyProfile
 } = require('../controllers/studentsController');
 const checkAdmin = require('../middleware/checkAdmin');
+const checkStudent = require('../middleware/checkStudent');
 
 const router = express.Router();
 
 // Validation middleware
 const validateStudent = [
-  body('username').isLength({ min: 3 }).withMessage('Username must be at least 3 characters'),
   body('password').isLength({ min: 6 }).withMessage('Password must be at least 6 characters'),
   body('first_name').notEmpty().withMessage('First name is required'),
   body('middle_name').optional(),
   body('last_name').notEmpty().withMessage('Last name is required'),
-  body('student_id').notEmpty().withMessage('Student ID is required'),
   body('class_id').isInt({ min: 1 }).withMessage('Valid class ID is required'),
   body('date_of_birth').optional().isISO8601().withMessage('Please provide a valid date of birth'),
   body('parent_name').notEmpty().withMessage('Parent name is required'),
@@ -28,7 +28,6 @@ const validateStudent = [
 ];
 
 const validateStudentUpdate = [
-  body('student_id').notEmpty().withMessage('Student ID is required'),
   body('class_id').isInt({ min: 1 }).withMessage('Valid class ID is required'),
   body('date_of_birth').optional().isISO8601().withMessage('Please provide a valid date of birth'),
   body('parent_name').notEmpty().withMessage('Parent name is required'),
@@ -37,6 +36,7 @@ const validateStudentUpdate = [
 ];
 
 // Routes - all protected with admin middleware
+router.get('/me', checkStudent, getMyProfile); // Must come before /:id to avoid routing issues
 router.get('/', checkAdmin, getAllStudents);
 router.get('/class/:classId', checkAdmin, [param('classId').isInt({ min: 1 }).withMessage('Invalid class ID')], getStudentsByClassId);
 router.get('/:id', checkAdmin, [param('id').isInt({ min: 1 }).withMessage('Invalid student ID')], getStudentById);

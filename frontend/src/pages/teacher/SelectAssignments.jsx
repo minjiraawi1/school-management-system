@@ -2,6 +2,13 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import api from '../../services/api';
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+} from "@/components/ui/card"
 import { ChevronRight, BookOpen, Calendar, Users } from 'lucide-react';
 
 const SelectAssignments = () => {
@@ -41,22 +48,22 @@ const SelectAssignments = () => {
   if (loading) {
     return (
       <div className="flex justify-center items-center h-96">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-600"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
       </div>
     );
   }
 
   return (
-    <div>
+    <div className="max-w-7xl mx-auto p-6 space-y-6">
       {/* Header */}
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900">Manage Results</h1>
-        <p className="text-gray-600 mt-2">Select an assignment to manage student results</p>
+      <div>
+        <h1 className="text-3xl font-bold tracking-tight">Manage Results</h1>
+        <p className="text-muted-foreground">Select an assignment to manage student results</p>
       </div>
 
       {/* Error Message */}
       {error && (
-        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-6">
+        <div className="bg-destructive/10 border border-destructive/20 text-destructive px-4 py-3 rounded-md">
           {error}
         </div>
       )}
@@ -65,60 +72,55 @@ const SelectAssignments = () => {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {assignments.length > 0 ? (
           assignments.map((assignment) => (
-            <div
+            <Card
               key={`${assignment.class_id}-${assignment.subject_id}-${assignment.academic_year}`}
               onClick={() => handleSelectAssignment(assignment)}
-              className="bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow cursor-pointer border border-gray-200 overflow-hidden"
+              className="cursor-pointer hover:shadow-lg transition-all duration-200 border-l-4 border-l-primary"
             >
-              {/* Card Header */}
-              <div className="bg-gradient-to-r from-indigo-500 to-indigo-600 px-6 py-4">
-                <h3 className="text-lg font-bold text-white">{assignment.subject_name}</h3>
-                <p className="text-indigo-100 text-sm">{assignment.subject_code}</p>
-              </div>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-lg">{assignment.subject_name}</CardTitle>
+                <CardDescription>{assignment.subject_code}</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-2">
+                  <div className="flex items-center gap-3 text-sm">
+                    <Users size={16} className="text-muted-foreground" />
+                    <div>
+                      <p className="text-xs text-muted-foreground uppercase tracking-wide">Class</p>
+                      <p className="font-medium">{assignment.class_name}</p>
+                    </div>
+                  </div>
 
-              {/* Card Body */}
-              <div className="px-6 py-4 space-y-3">
-                {/* Class */}
-                <div className="flex items-start gap-3">
-                  <Users size={18} className="text-gray-500 mt-1 flex-shrink-0" />
-                  <div>
-                    <p className="text-xs text-gray-500 uppercase tracking-wide">Class</p>
-                    <p className="text-gray-900 font-semibold">{assignment.class_name}</p>
+                  <div className="flex items-center gap-3 text-sm">
+                    <Calendar size={16} className="text-muted-foreground" />
+                    <div>
+                      <p className="text-xs text-muted-foreground uppercase tracking-wide">Academic Year</p>
+                      <p className="font-medium">{assignment.academic_year}</p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-3 text-sm">
+                    <BookOpen size={16} className="text-muted-foreground" />
+                    <div>
+                      <p className="text-xs text-muted-foreground uppercase tracking-wide">Subject</p>
+                      <p className="font-medium">{assignment.subject_name}</p>
+                    </div>
                   </div>
                 </div>
 
-                {/* Academic Year */}
-                <div className="flex items-start gap-3">
-                  <Calendar size={18} className="text-gray-500 mt-1 flex-shrink-0" />
-                  <div>
-                    <p className="text-xs text-gray-500 uppercase tracking-wide">Academic Year</p>
-                    <p className="text-gray-900 font-semibold">{assignment.academic_year}</p>
-                  </div>
+                <div className="pt-2 flex items-center justify-between text-primary font-medium text-sm">
+                  <span>Manage Results</span>
+                  <ChevronRight size={16} />
                 </div>
-
-                {/* Subject Code */}
-                <div className="flex items-start gap-3">
-                  <BookOpen size={18} className="text-gray-500 mt-1 flex-shrink-0" />
-                  <div>
-                    <p className="text-xs text-gray-500 uppercase tracking-wide">Subject</p>
-                    <p className="text-gray-900 font-semibold">{assignment.subject_name}</p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Card Footer */}
-              <div className="px-6 py-4 bg-gray-50 border-t flex items-center justify-between hover:bg-indigo-50 transition-colors">
-                <span className="text-sm font-semibold text-gray-700">Manage Results</span>
-                <ChevronRight size={20} className="text-indigo-600" />
-              </div>
-            </div>
+              </CardContent>
+            </Card>
           ))
         ) : (
-          <div className="col-span-full text-center py-12">
-            <BookOpen size={48} className="mx-auto text-gray-400 mb-4" />
-            <p className="text-lg text-gray-600">No assignments found</p>
-            <p className="text-sm text-gray-500 mt-1">
-              You haven't been assigned any subjects yet
+          <div className="col-span-full text-center py-12 border-2 border-dashed rounded-lg">
+            <BookOpen size={48} className="mx-auto text-muted-foreground mb-4 opacity-50" />
+            <p className="text-lg font-medium text-muted-foreground">No assignments found</p>
+            <p className="text-sm text-muted-foreground mt-1">
+              You haven&apos;t been assigned any subjects yet
             </p>
           </div>
         )}

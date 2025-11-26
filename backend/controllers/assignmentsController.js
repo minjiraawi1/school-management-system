@@ -27,6 +27,7 @@ const getAllAssignments = async (req, res) => {
     `, [limit, offset]);
 
     res.json({
+      success: true,
       data: dataResult.rows,
       pagination: {
         total,
@@ -37,7 +38,7 @@ const getAllAssignments = async (req, res) => {
     });
   } catch (error) {
     console.error('Get assignments error:', error);
-    res.status(500).json({ error: 'Server error' });
+    res.status(500).json({ success: false, error: 'Server error' });
   }
 };
 
@@ -55,10 +56,10 @@ const getAssignmentsByTeacherId = async (req, res) => {
       WHERE ta.teacher_id = $1
       ORDER BY ta.academic_year DESC, c.grade_level, c.name, s.name
     `, [teacherId]);
-    res.json(result.rows);
+    res.json({ success: true, data: result.rows });
   } catch (error) {
     console.error('Get assignments by teacher error:', error);
-    res.status(500).json({ error: 'Server error' });
+    res.status(500).json({ success: false, error: 'Server error' });
   }
 };
 
@@ -71,7 +72,7 @@ const getMyAssignments = async (req, res) => {
     const teacherResult = await pool.query('SELECT id FROM teachers WHERE user_id = $1', [req.user.id]);
     
     if (teacherResult.rows.length === 0) {
-      return res.status(404).json({ error: 'Teacher profile not found' });
+      return res.status(404).json({ success: false, error: 'Teacher profile not found' });
     }
 
     const actualTeacherId = teacherResult.rows[0].id;
@@ -87,10 +88,10 @@ const getMyAssignments = async (req, res) => {
       ORDER BY ta.academic_year DESC, c.grade_level, c.name, s.name
     `, [actualTeacherId]);
     
-    res.json(result.rows);
+    res.json({ success: true, data: result.rows });
   } catch (error) {
     console.error('Get my assignments error:', error);
-    res.status(500).json({ error: 'Server error' });
+    res.status(500).json({ success: false, error: 'Server error' });
   }
 };
 
@@ -99,7 +100,7 @@ const createAssignment = async (req, res) => {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({ errors: errors.array() });
+      return res.status(400).json({ success: false, errors: errors.array() });
     }
 
     const { teacher_id, subject_id, class_id, academic_year } = req.body;
@@ -110,17 +111,18 @@ const createAssignment = async (req, res) => {
     );
 
     res.status(201).json({
+      success: true,
       message: 'Teacher assignment created successfully',
-      assignment: result.rows[0]
+      data: result.rows[0]
     });
   } catch (error) {
     console.error('Create assignment error:', error);
     if (error.code === '23505') { // Unique violation
-      res.status(400).json({ error: 'This assignment already exists' });
+      res.status(400).json({ success: false, error: 'This assignment already exists' });
     } else if (error.code === '23503') { // Foreign key violation
-      res.status(400).json({ error: 'Invalid teacher, subject, or class ID' });
+      res.status(400).json({ success: false, error: 'Invalid teacher, subject, or class ID' });
     } else {
-      res.status(500).json({ error: 'Server error' });
+      res.status(500).json({ success: false, error: 'Server error' });
     }
   }
 };
@@ -133,13 +135,13 @@ const deleteAssignment = async (req, res) => {
     const result = await pool.query('DELETE FROM teacher_assignments WHERE id = $1 RETURNING *', [id]);
 
     if (result.rows.length === 0) {
-      return res.status(404).json({ error: 'Assignment not found' });
+      return res.status(404).json({ success: false, error: 'Assignment not found' });
     }
 
-    res.json({ message: 'Teacher assignment deleted successfully' });
+    res.json({ success: true, message: 'Teacher assignment deleted successfully' });
   } catch (error) {
     console.error('Delete assignment error:', error);
-    res.status(500).json({ error: 'Server error' });
+    res.status(500).json({ success: false, error: 'Server error' });
   }
 };
 

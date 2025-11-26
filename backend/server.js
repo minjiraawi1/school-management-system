@@ -24,6 +24,7 @@ const teachersRoutes = require('./routes/teachersRoutes');
 const studentsRoutes = require('./routes/studentsRoutes');
 const assignmentsRoutes = require('./routes/assignmentsRoutes');
 const resultsRoutes = require('./routes/resultsRoutes');
+const profileRoutes = require('./routes/profileRoutes');
 
 // Routes
 app.get('/', (req, res) => {
@@ -47,6 +48,7 @@ app.use('/api/teachers', teachersRoutes);
 app.use('/api/students', studentsRoutes);
 app.use('/api/assignments', assignmentsRoutes);
 app.use('/api/results', resultsRoutes);
+app.use('/api/profile', profileRoutes);
 
 // Error handling middleware
 app.use((err, req, res, next) => {

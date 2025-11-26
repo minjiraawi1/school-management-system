@@ -2,7 +2,7 @@ import api from './api';
 
 export const listClasses = async () => {
   const res = await api.get('/classes');
-  return res.data.data || res.data;
+  return res.data.data;
 };
 
 export const createClass = async (payload) => {

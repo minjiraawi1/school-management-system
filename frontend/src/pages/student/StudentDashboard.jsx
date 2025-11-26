@@ -1,12 +1,27 @@
-import { useState, useEffect } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import api from '../../services/api';
-import { BookOpen, BarChart3, Award, TrendingUp, AlertCircle } from 'lucide-react';
+import { 
+  BookOpen, BarChart3, Award, TrendingUp, AlertCircle, ArrowRight,
+  GraduationCap, Calendar, Trophy, Target, Sparkles, Star, 
+  CheckCircle2, Clock, Zap
+} from 'lucide-react';
+import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 
 const StudentDashboard = () => {
   const navigate = useNavigate();
   const { user } = useSelector((state) => state.auth);
+
+  // Calculate grade from score
+  const calculateGrade = (score) => {
+    if (score >= 90) return 'A';
+    if (score >= 80) return 'B';
+    if (score >= 70) return 'C';
+    if (score >= 60) return 'D';
+    return 'F';
+  };
   const [stats, setStats] = useState({
     subjects: 0,
     classInfo: null,
@@ -15,53 +30,70 @@ const StudentDashboard = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  useEffect(() => {
-    loadDashboard();
-  }, []);
-
-  const loadDashboard = async () => {
+  const loadDashboard = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
 
-      // Get student info with class details
-      try {
-        const studentResponse = await api.get(`/students`);
-        const students = studentResponse.data || [];
-        const currentStudent = students.find(s => s.email === user?.email);
-        
-        if (currentStudent) {
-          setStats(prev => ({
-            ...prev,
-            classInfo: {
-              name: currentStudent.class_name,
-              gradeLevel: currentStudent.grade_level,
-              academicYear: currentStudent.academic_year,
-            },
-            subjects: 0, // Will update from results
-          }));
-        }
-      } catch (e) {
-        console.log('Could not load class info');
+      if (!user?.id) {
+        console.log('User not authenticated');
+        return;
       }
 
-      // Get student results
-      try {
-        const resultsResponse = await api.get('/results');
-        const allResults = resultsResponse.data || [];
-        
-        // Filter results for this student by email
-        const studentResults = allResults.filter(r => r.student_email === user?.email || r.student_id === user?.id);
-        setResults(studentResults);
+      let classInfo = {
+        name: 'N/A',
+        gradeLevel: 'N/A',
+        academicYear: `${new Date().getFullYear()}-${new Date().getFullYear() + 1}`,
+      };
 
-        // Count unique subjects
-        const uniqueSubjects = new Set(studentResults.map(r => r.subject_id)).size;
+      // Get current student's profile info (class details)
+      try {
+        const studentResponse = await api.get(`/students/me`);
+        if (studentResponse.data?.success && studentResponse.data?.data) {
+          const studentData = studentResponse.data.data;
+          classInfo = {
+            name: studentData.class_name || 'N/A',
+            gradeLevel: studentData.grade_level || 'N/A',
+            academicYear: studentData.academic_year || classInfo.academicYear,
+          };
+        }
+      } catch (error) {
+        console.log('Could not load student profile, using defaults:', error.message);
+      }
+
+      // Get student results for current academic year
+      try {
+        const currentYear = new Date().getFullYear();
+        const academicYear = `${currentYear}-${currentYear + 1}`;
+        
+        const resultsResponse = await api.get(`/results/student/me/${academicYear}`);
+        const responseData = resultsResponse.data?.data || resultsResponse.data || {};
+        
+        // Update stats with class info and subject count
         setStats(prev => ({
           ...prev,
-          subjects: uniqueSubjects,
+          classInfo,
+          subjects: responseData.subjects?.length || 0,
         }));
-      } catch (e) {
-        console.log('Could not load results');
+
+        // Map results to the format expected by ResultCard
+        const formattedResults = responseData.subjects?.map(subject => ({
+          subject_id: subject.subject_id,
+          subject_name: subject.subject_name,
+          final_score: subject.annual_total,
+          grade: calculateGrade(subject.annual_total),
+        })) || [];
+
+        setResults(formattedResults);
+      } catch (error) {
+        console.error('Could not load results:', error);
+        // Set empty results but don't fail the dashboard
+        setResults([]);
+        setStats(prev => ({
+          ...prev,
+          classInfo,
+          subjects: 0,
+        }));
       }
     } catch (err) {
       setError('Failed to load dashboard');
@@ -69,92 +101,221 @@ const StudentDashboard = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [user?.id]);
 
-  const StatCard = ({ icon: Icon, label, value, color }) => (
-    <div className={`bg-white rounded-lg shadow-md p-6 border-t-4 ${color}`}>
-      <div className="flex items-center justify-between">
-        <div>
-          <p className="text-gray-600 text-sm font-medium">{label}</p>
-          <p className="text-3xl font-bold text-gray-900 mt-2">{value}</p>
+  useEffect(() => {
+    loadDashboard();
+  }, [loadDashboard]);
+
+  // Modern stat card
+  const StatCard = ({ icon: Icon, label, value, gradient }) => (
+    <Card className="group overflow-hidden border-0 bg-white dark:bg-slate-900 shadow-lg shadow-slate-200/50 dark:shadow-slate-900/50 hover:shadow-xl transition-all duration-500">
+      <CardContent className="p-6 relative">
+        <div className={`absolute top-0 right-0 w-32 h-32 ${gradient} opacity-10 blur-2xl rounded-full transform translate-x-8 -translate-y-8 group-hover:opacity-20 transition-opacity duration-500`} />
+        
+        <div className="relative z-10">
+          <div className="flex items-start justify-between mb-4">
+            <div className={`p-3 rounded-2xl ${gradient} shadow-lg`}>
+              <Icon className="w-6 h-6 text-white" />
+            </div>
+          </div>
+          
+          <h3 className="text-4xl font-bold text-slate-900 dark:text-white mb-1 tracking-tight">
+            {value}
+          </h3>
+          <p className="text-slate-500 dark:text-slate-400 text-sm font-medium">{label}</p>
         </div>
-        <Icon className="w-12 h-12 text-gray-400" />
-      </div>
-    </div>
+      </CardContent>
+    </Card>
   );
 
+  // Result card with grade visualization
   const ResultCard = ({ subject, score, grade }) => {
-    const gradeColor = {
-      'A': 'bg-green-100 text-green-800',
-      'B': 'bg-blue-100 text-blue-800',
-      'C': 'bg-yellow-100 text-yellow-800',
-      'D': 'bg-orange-100 text-orange-800',
-      'F': 'bg-red-100 text-red-800',
-    }[grade] || 'bg-gray-100 text-gray-800';
+    const gradeConfig = {
+      'A': { 
+        gradient: 'from-emerald-500 to-emerald-600', 
+        bg: 'bg-emerald-50 dark:bg-emerald-500/10', 
+        text: 'text-emerald-700 dark:text-emerald-400',
+        border: 'border-emerald-200 dark:border-emerald-800',
+        icon: Trophy
+      },
+      'B': { 
+        gradient: 'from-blue-500 to-blue-600', 
+        bg: 'bg-blue-50 dark:bg-blue-500/10', 
+        text: 'text-blue-700 dark:text-blue-400',
+        border: 'border-blue-200 dark:border-blue-800',
+        icon: Star
+      },
+      'C': { 
+        gradient: 'from-amber-500 to-amber-600', 
+        bg: 'bg-amber-50 dark:bg-amber-500/10', 
+        text: 'text-amber-700 dark:text-amber-400',
+        border: 'border-amber-200 dark:border-amber-800',
+        icon: Target
+      },
+      'D': { 
+        gradient: 'from-orange-500 to-orange-600', 
+        bg: 'bg-orange-50 dark:bg-orange-500/10', 
+        text: 'text-orange-700 dark:text-orange-400',
+        border: 'border-orange-200 dark:border-orange-800',
+        icon: Clock
+      },
+      'F': { 
+        gradient: 'from-red-500 to-red-600', 
+        bg: 'bg-red-50 dark:bg-red-500/10', 
+        text: 'text-red-700 dark:text-red-400',
+        border: 'border-red-200 dark:border-red-800',
+        icon: AlertCircle
+      },
+    };
+
+    const config = gradeConfig[grade] || gradeConfig['C'];
+    const GradeIcon = config.icon;
+    const numericScore = typeof score === 'number' ? score : 0;
 
     return (
-      <div className="bg-white rounded-lg shadow hover:shadow-lg transition-shadow p-6 border-l-4 border-indigo-600">
-        <div className="flex justify-between items-start">
-          <div>
-            <h3 className="text-lg font-semibold text-gray-900">{subject}</h3>
-            <p className="text-2xl font-bold text-indigo-600 mt-3">{score}%</p>
+      <Card className="group overflow-hidden border-0 bg-white dark:bg-slate-900 shadow-md shadow-slate-200/50 dark:shadow-slate-900/50 hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
+        <CardContent className="p-6">
+          {/* Header */}
+          <div className="flex justify-between items-start mb-4">
+            <div className={`p-2.5 rounded-xl bg-gradient-to-br ${config.gradient} shadow-lg group-hover:scale-110 transition-transform duration-300`}>
+              <BookOpen size={18} className="text-white" />
+            </div>
+            <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full ${config.bg} ${config.text} border ${config.border}`}>
+              <GradeIcon size={14} />
+              <span className="font-bold text-sm">Grade {grade}</span>
+            </div>
           </div>
-          <span className={`px-4 py-2 rounded-full font-bold text-lg ${gradeColor}`}>
-            {grade}
-          </span>
-        </div>
-      </div>
+          
+          {/* Subject name */}
+          <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-4 line-clamp-1">{subject}</h3>
+          
+          {/* Score visualization */}
+          <div className="space-y-2">
+            <div className="flex items-end justify-between">
+              <span className="text-sm text-slate-500 dark:text-slate-400">Final Score</span>
+              <span className={`text-2xl font-bold bg-gradient-to-r ${config.gradient} bg-clip-text text-transparent`}>
+                {score}%
+              </span>
+            </div>
+            
+            {/* Progress bar */}
+            <div className="h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+              <div 
+                className={`h-full bg-gradient-to-r ${config.gradient} rounded-full transition-all duration-1000`}
+                style={{ width: `${numericScore}%` }}
+              />
+            </div>
+          </div>
+        </CardContent>
+      </Card>
     );
   };
 
   if (loading) {
     return (
-      <div className="flex justify-center items-center h-96">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-600"></div>
+      <div className="flex flex-col justify-center items-center h-[80vh] gap-4">
+        <div className="relative">
+          <div className="w-16 h-16 border-4 border-emerald-100 dark:border-emerald-900 rounded-full" />
+          <div className="absolute top-0 left-0 w-16 h-16 border-4 border-emerald-600 rounded-full border-t-transparent animate-spin" />
+        </div>
+        <p className="text-slate-500 dark:text-slate-400 font-medium">Loading your dashboard...</p>
       </div>
     );
   }
 
+  const currentHour = new Date().getHours();
+  const greeting = currentHour < 12 ? 'Good morning' : currentHour < 18 ? 'Good afternoon' : 'Good evening';
+
+  // Calculate overall average
+  const overallAverage = results.length > 0 
+    ? (results.reduce((sum, r) => sum + (r.final_score || 0), 0) / results.length).toFixed(1)
+    : 0;
+
   return (
-    <div className="space-y-8">
-      {/* Welcome Section */}
-      <div className="bg-gradient-to-r from-green-600 to-green-800 rounded-lg shadow-lg p-8 text-white">
-        <h1 className="text-4xl font-bold mb-2">Welcome, {user?.first_name}! 👋</h1>
-        <p className="text-green-100 text-lg">
-          View your academic performance and results
-        </p>
-        {stats.classInfo && (
-          <div className="mt-4 text-green-50">
-            <p className="text-sm">Grade Level: <span className="font-semibold">{stats.classInfo.gradeLevel}</span></p>
-            <p className="text-sm">Class: <span className="font-semibold">{stats.classInfo.name}</span></p>
-            <p className="text-sm">Academic Year: <span className="font-semibold">{stats.classInfo.academicYear}</span></p>
+    <div className="space-y-8 max-w-7xl mx-auto p-6 lg:p-8">
+      {/* Welcome Header */}
+      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-emerald-600 via-teal-600 to-cyan-600 p-8 lg:p-10">
+        {/* Background pattern */}
+        <div className="absolute inset-0 opacity-10">
+          <div className="absolute inset-0" style={{backgroundImage: 'url("data:image/svg+xml,%3Csvg width="60" height="60" viewBox="0 0 60 60" xmlns="http://www.w3.org/2000/svg"%3E%3Cg fill="none" fill-rule="evenodd"%3E%3Cg fill="%23ffffff" fill-opacity="0.4"%3E%3Cpath d="M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z"/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")'}} />
+        </div>
+        
+        {/* Decorative elements */}
+        <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl transform translate-x-20 -translate-y-20" />
+        <div className="absolute bottom-0 left-0 w-48 h-48 bg-cyan-500/20 rounded-full blur-2xl transform -translate-x-10 translate-y-10" />
+        
+        <div className="relative z-10">
+          <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-6">
+            <div>
+              <div className="flex items-center gap-2 text-white/80 text-sm font-medium mb-2">
+                <Calendar size={16} />
+                <span>{new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</span>
+              </div>
+              <h1 className="text-3xl lg:text-4xl font-bold text-white mb-2">
+                {greeting}, {user?.first_name}! 🎓
+              </h1>
+              <p className="text-white/80 text-lg max-w-xl">
+                Track your academic journey and stay on top of your grades. Keep pushing forward!
+              </p>
+            </div>
+            
+            {/* Class Info Cards */}
+            {stats.classInfo && (
+              <div className="flex flex-wrap gap-3">
+                <div className="px-4 py-3 rounded-2xl bg-white/20 backdrop-blur-sm border border-white/20">
+                  <p className="text-xs text-white/70 uppercase tracking-wider font-semibold mb-0.5">Grade Level</p>
+                  <p className="font-bold text-white text-lg">{stats.classInfo.gradeLevel}</p>
+                </div>
+                <div className="px-4 py-3 rounded-2xl bg-white/20 backdrop-blur-sm border border-white/20">
+                  <p className="text-xs text-white/70 uppercase tracking-wider font-semibold mb-0.5">Class</p>
+                  <p className="font-bold text-white text-lg">{stats.classInfo.name}</p>
+                </div>
+                <div className="px-4 py-3 rounded-2xl bg-white/20 backdrop-blur-sm border border-white/20">
+                  <p className="text-xs text-white/70 uppercase tracking-wider font-semibold mb-0.5">Year</p>
+                  <p className="font-bold text-white text-lg">{stats.classInfo.academicYear}</p>
+                </div>
+              </div>
+            )}
           </div>
-        )}
+        </div>
       </div>
 
-      {/* Error Message */}
+      {/* Error Alert */}
       {error && (
-        <div className="bg-red-50 border border-red-200 text-red-700 px-6 py-4 rounded-lg flex items-center gap-3">
+        <div className="flex items-center gap-3 p-4 rounded-2xl bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-400">
           <AlertCircle size={20} />
-          <span>{error}</span>
+          <span className="font-medium">{error}</span>
         </div>
       )}
 
       {/* Statistics */}
       <div>
-        <h2 className="text-2xl font-bold text-gray-900 mb-6">Your Statistics</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <h2 className="text-xl font-bold text-slate-900 dark:text-white">Overview</h2>
+            <p className="text-slate-500 dark:text-slate-400 text-sm">Your academic snapshot</p>
+          </div>
+        </div>
+        
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           <StatCard
             icon={BookOpen}
             label="Enrolled Subjects"
             value={stats.subjects}
-            color="border-blue-500"
+            gradient="bg-gradient-to-br from-blue-500 to-blue-600"
           />
           <StatCard
             icon={BarChart3}
-            label="Total Results"
+            label="Results Posted"
             value={results.length}
-            color="border-green-500"
+            gradient="bg-gradient-to-br from-emerald-500 to-emerald-600"
+          />
+          <StatCard
+            icon={Target}
+            label="Overall Average"
+            value={`${overallAverage}%`}
+            gradient="bg-gradient-to-br from-violet-500 to-violet-600"
           />
         </div>
       </div>
@@ -162,56 +323,114 @@ const StudentDashboard = () => {
       {/* Results Section */}
       <div>
         <div className="flex justify-between items-center mb-6">
-          <h2 className="text-2xl font-bold text-gray-900">Your Results</h2>
-          <button
-            onClick={() => navigate('/student/results')}
-            className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg font-semibold transition-colors"
+          <div>
+            <h2 className="text-xl font-bold text-slate-900 dark:text-white">Your Results</h2>
+            <p className="text-slate-500 dark:text-slate-400 text-sm">Performance by subject</p>
+          </div>
+          <Button 
+            variant="ghost" 
+            onClick={() => navigate('/student/results')} 
+            className="gap-2 text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 dark:hover:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-500/10"
           >
-            View Detailed Results
-          </button>
+            View All Results
+            <ArrowRight size={16} />
+          </Button>
         </div>
 
         {results.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {results.slice(0, 6).map((result, idx) => (
               <ResultCard
                 key={idx}
                 subject={result.subject_name || result.subject_id}
-                score={result.final_score || 'N/A'}
+                score={result.final_score || 0}
                 grade={result.grade || 'N/A'}
               />
             ))}
           </div>
         ) : (
-          <div className="bg-white rounded-lg shadow p-8 text-center">
-            <Award size={48} className="mx-auto text-gray-400 mb-4" />
-            <p className="text-gray-600 text-lg">No results available yet</p>
-            <p className="text-gray-500 text-sm mt-2">Your results will appear here as they are posted by teachers</p>
-          </div>
+          <Card className="border-0 shadow-lg shadow-slate-200/50 dark:shadow-slate-900/50 bg-white dark:bg-slate-900">
+            <CardContent className="p-12 text-center">
+              <div className="w-20 h-20 bg-slate-100 dark:bg-slate-800 rounded-full flex items-center justify-center mx-auto mb-6">
+                <Award size={40} className="text-slate-400" />
+              </div>
+              <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-2">No Results Yet</h3>
+              <p className="text-slate-500 dark:text-slate-400 max-w-md mx-auto">
+                Your results will appear here as soon as your teachers publish them. Keep working hard!
+              </p>
+            </CardContent>
+          </Card>
         )}
       </div>
 
-      {/* Quick Info */}
+      {/* Info Cards Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div className="bg-blue-50 rounded-lg shadow p-6 border-l-4 border-blue-500">
-          <h3 className="text-lg font-bold text-blue-900 mb-3">📚 About Your Results</h3>
-          <ul className="text-sm text-blue-800 space-y-2">
-            <li>• Results are calculated from monthly tests and exams</li>
-            <li>• Your final score is the average of Term 1 and Term 2</li>
-            <li>• Grades are assigned based on your final score percentage</li>
-            <li>• Grading scale: A (90-100), B (80-89), C (70-79), D (60-69), F (0-59)</li>
-          </ul>
-        </div>
+        {/* Grading System */}
+        <Card className="border-0 shadow-lg shadow-slate-200/50 dark:shadow-slate-900/50 bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20">
+          <CardContent className="p-8">
+            <div className="flex items-center gap-3 mb-6">
+              <div className="p-2.5 rounded-xl bg-blue-100 dark:bg-blue-500/20">
+                <GraduationCap size={20} className="text-blue-600 dark:text-blue-400" />
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-slate-900 dark:text-white">Grading System</h3>
+                <p className="text-sm text-slate-500 dark:text-slate-400">How your grades are calculated</p>
+              </div>
+            </div>
+            
+            <div className="space-y-3">
+              {[
+                { grade: 'A', range: '90-100%', color: 'emerald' },
+                { grade: 'B', range: '80-89%', color: 'blue' },
+                { grade: 'C', range: '70-79%', color: 'amber' },
+                { grade: 'D', range: '60-69%', color: 'orange' },
+                { grade: 'F', range: '0-59%', color: 'red' },
+              ].map((item) => (
+                <div 
+                  key={item.grade} 
+                  className={`flex items-center justify-between p-3 rounded-xl bg-white/60 dark:bg-slate-800/60 border border-${item.color}-100 dark:border-${item.color}-800/50`}
+                >
+                  <span className={`font-bold text-${item.color}-600 dark:text-${item.color}-400`}>Grade {item.grade}</span>
+                  <span className="text-sm text-slate-600 dark:text-slate-400">{item.range}</span>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
 
-        <div className="bg-green-50 rounded-lg shadow p-6 border-l-4 border-green-500">
-          <h3 className="text-lg font-bold text-green-900 mb-3">🎯 Performance Tips</h3>
-          <ul className="text-sm text-green-800 space-y-2">
-            <li>• Check your results regularly to track progress</li>
-            <li>• Review areas where you scored lower for improvement</li>
-            <li>• Communicate with teachers for academic support</li>
-            <li>• Set goals and work towards achieving higher grades</li>
-          </ul>
-        </div>
+        {/* Performance Tips */}
+        <Card className="border-0 shadow-lg shadow-slate-200/50 dark:shadow-slate-900/50 bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-900/20 dark:to-teal-900/20">
+          <CardContent className="p-8">
+            <div className="flex items-center gap-3 mb-6">
+              <div className="p-2.5 rounded-xl bg-emerald-100 dark:bg-emerald-500/20">
+                <Sparkles size={20} className="text-emerald-600 dark:text-emerald-400" />
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-slate-900 dark:text-white">Performance Tips</h3>
+                <p className="text-sm text-slate-500 dark:text-slate-400">Strategies for success</p>
+              </div>
+            </div>
+            
+            <div className="space-y-3">
+              {[
+                { icon: CheckCircle2, text: 'Check your results regularly to track progress' },
+                { icon: Target, text: 'Review areas where you scored lower for improvement' },
+                { icon: Zap, text: 'Set goals and work towards achieving higher grades' },
+                { icon: TrendingUp, text: 'Your final score is the average of Term 1 and Term 2' },
+              ].map((tip, index) => (
+                <div 
+                  key={index} 
+                  className="flex items-start gap-3 p-3 rounded-xl bg-white/60 dark:bg-slate-800/60 border border-emerald-100 dark:border-emerald-800/50"
+                >
+                  <div className="p-1.5 rounded-lg bg-emerald-100 dark:bg-emerald-500/20">
+                    <tip.icon size={14} className="text-emerald-600 dark:text-emerald-400" />
+                  </div>
+                  <p className="text-sm text-slate-700 dark:text-slate-300">{tip.text}</p>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
       </div>
     </div>
   );
